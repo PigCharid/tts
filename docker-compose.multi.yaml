@@ -1,0 +1,163 @@
+version: '3.8'
+
+services:
+  # Nginx 负载均衡器
+  nginx:
+    image: nginx:alpine
+    container_name: indextts-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - indextts-api-1
+      - indextts-api-2
+      - indextts-api-3
+    restart: unless-stopped
+    networks:
+      - indextts-network
+
+  # IndexTTS API 实例 1
+  indextts-api-1:
+    build: .
+    container_name: indextts-api-1
+    expose:
+      - "6008"
+    volumes:
+      - ./checkpoints:/app/checkpoints:ro
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - INSTANCE_ID=1
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - indextts-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # IndexTTS API 实例 2
+  indextts-api-2:
+    build: .
+    container_name: indextts-api-2
+    expose:
+      - "6008"
+    volumes:
+      - ./checkpoints:/app/checkpoints:ro
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - INSTANCE_ID=2
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - indextts-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # IndexTTS API 实例 3
+  indextts-api-3:
+    build: .
+    container_name: indextts-api-3
+    expose:
+      - "6008"
+    volumes:
+      - ./checkpoints:/app/checkpoints:ro
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - INSTANCE_ID=3
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - indextts-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # Redis 缓存（可选）
+  redis:
+    image: redis:7-alpine
+    container_name: indextts-redis
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    networks:
+      - indextts-network
+
+  # 监控服务（可选）
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: indextts-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - indextts-network
+
+  # Grafana 仪表板（可选）
+  grafana:
+    image: grafana/grafana:latest
+    container_name: indextts-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    networks:
+      - indextts-network
+
+volumes:
+  redis_data:
+  grafana_data:
+
+networks:
+  indextts-network:
+    driver: bridge

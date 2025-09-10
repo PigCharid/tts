@@ -1,0 +1,28 @@
+@"
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+
+# 构建/打包
+build/
+dist/
+
+# 日志与数据
+logs/
+*.log
+
+# 模型/大文件（用 LFS，而不是普通 Git）
+checkpoints/
+
+# 编辑器
+.vscode/
+.idea/
+
+# 运行时
+*.pid
+"@ | Out-File -Encoding utf8 .gitignore
