@@ -5,3 +5,4 @@ omegaconf
 tqdm
 huggingface_hub
 deepspeed; platform_system != "Windows"
+httpx
